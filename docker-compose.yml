@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # Network Scanner Microservice
+  scanner:
+    build: ./scanner/backend
+    container_name: vm-registry-scanner
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      - TZ=America/Santiago
+    volumes:
+      # Montamos el registro completo para que el scanner lo lea localmente
+      - ./:/app/vm-registry:ro
+      # Montamos el código fuente para desarrollo
+      - ./scanner/backend:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Scanner UI
+  scanner-ui:
+    build: ./scanner/frontend
+    container_name: vm-registry-ui
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      scanner:
+        condition: service_healthy
+    environment:
+      - TZ=America/Santiago

@@ -1,9 +1,25 @@
+---
+ip: dhcp
+hostname: home-assistant
+type: vm
+description: Domótica y automatización del hogar
+tags:
+  - smarthome
+  - automation
+  - iot
+specs:
+  cpu: "2 cores"
+  ram: "4GB"
+  storage: "32GB SATA"
+critical: false
+vmid: 111
+---
 # 🏠 Home Assistant VM
 
 > **Tipo**: VM (QEMU)  
 > **VMID**: 111  
 > **Estado**: 🟢 Running  
-> **Última actualización**: 2025-12-25
+> **Última actualización**: 2025-12-29
 
 ---
 

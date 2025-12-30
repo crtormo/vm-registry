@@ -1,9 +1,26 @@
+---
+ip: 192.168.100.220
+hostname: npmplus
+type: container
+description: Reverse Proxy + SSL + Routing
+tags:
+  - proxy
+  - ssl
+  - infrastructure
+specs:
+  cpu: "1 core"
+  ram: "512MB"
+  storage: "3GB"
+  os: "Alpine Linux"
+critical: true
+ctid: 106
+---
 # 🌐 NPMplus (Nginx Proxy Manager Plus)
 
 > **Tipo**: LXC Container  
 > **CTID**: 106  
 > **Estado**: 🟢 Running  
-> **Última actualización**: 2025-12-25
+> **Última actualización**: 2025-12-29
 
 ---
 

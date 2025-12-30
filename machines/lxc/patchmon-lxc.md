@@ -1,9 +1,24 @@
+---
+ip: 192.168.100.228
+hostname: patchmon
+type: container
+description: Monitoreo de parches y seguridad
+tags:
+  - monitoring
+  - security
+specs:
+  cpu: "2 cores"
+  ram: "2GB"
+  storage: "4GB"
+critical: false
+ctid: 102
+---
 # 🔍 Patchmon
 
 > **Tipo**: LXC Container  
 > **CTID**: 102  
 > **Estado**: 🟢 Running  
-> **Última actualización**: 2025-12-25
+> **Última actualización**: 2025-12-29
 
 ---
 

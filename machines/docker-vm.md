@@ -1,8 +1,25 @@
+---
+ip: 192.168.100.209
+hostname: docker
+type: vm
+description: VM principal de desarrollo, servicios Docker y Antigravity
+tags:
+  - development
+  - docker
+  - critical
+specs:
+  cpu: "6 cores (i7-9700K)"
+  ram: "10GB"
+  storage: "100GB LVM"
+  os: "Ubuntu 24.04.3 LTS"
+critical: true
+vmid: 115
+---
 # 🐳 Docker VM
 
 > **Tipo**: VM  
 > **Estado**: 🟢 Activo  
-> **Última actualización**: 2025-12-25
+> **Última actualización**: 2025-12-29
 
 ---
 

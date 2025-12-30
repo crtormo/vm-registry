@@ -1,9 +1,25 @@
+---
+ip: dhcp
+hostname: jellyfin
+type: container
+description: Media Server (actualmente deshabilitado)
+tags:
+  - media
+  - stopped
+  - legacy
+specs:
+  cpu: "2 cores"
+  ram: "2GB"
+  storage: "16GB"
+critical: false
+ctid: 100
+---
 # 🎬 Jellyfin (DETENIDO)
 
 > **Tipo**: LXC Container  
 > **CTID**: 100  
 > **Estado**: 🔴 Stopped  
-> **Última actualización**: 2025-12-25
+> **Última actualización**: 2025-12-29
 
 ---
 

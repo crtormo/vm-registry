@@ -1,9 +1,24 @@
+---
+ip: 192.168.100.226
+hostname: jellyseerr
+type: container
+description: Gestor de solicitudes de media
+tags:
+  - media
+  - entertainment
+specs:
+  cpu: "4 cores"
+  ram: "4GB"
+  storage: "8GB"
+critical: false
+ctid: 105
+---
 # 🎬 Jellyseerr
 
 > **Tipo**: LXC Container  
 > **CTID**: 105  
 > **Estado**: 🟢 Running  
-> **Última actualización**: 2025-12-25
+> **Última actualización**: 2025-12-29
 
 ---
 

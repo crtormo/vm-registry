@@ -1,4 +1,19 @@
-# 🖥️ Proxmox Host (pve)
+---
+ip: 192.168.100.159
+hostname: pve
+type: server
+description: Hypervisor Proxmox VE principal
+tags:
+  - infrastructure
+  - hypervisor
+  - critical
+specs:
+  cpu: i7-9700K (8 cores)
+  ram: 32GB
+  storage: NVMe + HDD + NAS
+critical: true
+---
+# Proxmox Host (pve)
 
 > **Tipo**: Hypervisor (Bare-metal)  
 > **Estado**: 🟢 Activo  
@@ -26,7 +41,14 @@
 | **RAM** | 32 GB | ~25GB en uso típico |
 | **Swap** | 0 GB | No configurado |
 
-### 💾 Discos Físicos
+### 🎮 GPUs Disponibles
+
+| GPU | Bus ID | IOMMU Group | Estado | Uso Recomendado |
+|-----|--------|-------------|--------|-----------------|
+| **NVIDIA RTX 2070 Mobile/Max-Q** | 01:00.0 | Group 19 (aislado) | ✅ Activo (vfio-pci) | Passthrough a VM Gaming |
+| **Intel UHD Graphics 630** | 00:02.0 | Group 0 (solo) | 🔴 Deshabilitado | Transcodificación HW (Jellyfin) |
+
+> ⚠️ **Nota**: La iGPU Intel está deshabilitada en BIOS. Puede habilitarse para transcodificación QuickSync.
 
 | Dispositivo | Tamaño | Tipo | Modelo | Uso |
 |-------------|--------|------|--------|-----|

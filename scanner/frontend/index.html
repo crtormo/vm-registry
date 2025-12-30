@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Scanner - Visualizador de Red</title>
+    <meta name="description" content="Visualizador animado de red local con escaneo en tiempo real">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=20241229_v2">
+</head>
+
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <span class="logo">🌐</span>
+                <h1>Network Scanner</h1>
+            </div>
+            <div class="header-center">
+                <div class="network-info" id="networkInfo">
+                    <span class="network-badge">
+                        <span class="pulse"></span>
+                        <span id="networkAddress">Detectando red...</span>
+                    </span>
+                </div>
+            </div>
+            <div class="header-right">
+                <select id="scanTypeSelect" class="scan-type-select">
+                    <option value="quick">⚡ Rápido (ARP)</option>
+                    <option value="standard">🔍 Estándar (Nmap)</option>
+                    <option value="web">🌐 Web (Ports 80,443,8080)</option>
+                    <option value="iot">🔌 IoT</option>
+                    <option value="smarthome">🏠 Smart Home</option>
+                    <option value="aggressive">⚠️ Agresivo</option>
+                    <option value="stealth">🕵️ Sigiloso</option>
+                    <option value="full">🔬 Completo (1000 ports)</option>
+                </select>
+                <button class="btn btn-primary" id="btnStartScan" title="Iniciar escaneo"
+                    onclick="console.log('Click HTML'); triggerScan()">
+                    <span class="icon">▶️</span> Escanear
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Stats Bar -->
+            <div class="stats-bar">
+                <div class="stat">
+                    <span class="stat-value" id="totalDevices">0</span>
+                    <span class="stat-label">Dispositivos</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value" id="scanTime">-</span>
+                    <span class="stat-label">Tiempo escaneo</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value" id="lastScan">-</span>
+                    <span class="stat-label">Último escaneo</span>
+                </div>
+                <div class="stat status" id="connectionStatus">
+                    <span class="status-indicator disconnected"></span>
+                    <span class="stat-label">Desconectado</span>
+                </div>
+
+                <!-- Search and Filters -->
+                <div class="controls-section">
+                    <input type="text" id="searchInput" class="search-input"
+                        placeholder="🔍 Buscar IP, hostname, vendor...">
+                    <button class="btn btn-icon" id="btnExport" title="Exportar">📥</button>
+                    <button class="btn btn-icon" id="btnTheme" title="Cambiar tema">🌙</button>
+                    <button class="btn btn-icon" id="btnAlerts" title="Alertas">🔔<span class="alert-badge"
+                            id="alertBadge" style="display:none">0</span></button>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-view="graph" onclick="switchView('graph')">🌐 Mapa de Red</button>
+                <button class="nav-tab" data-view="inventory" onclick="switchView('inventory')">📋 Inventario</button>
+            </div>
+
+            <!-- Visualization Container (Graph) -->
+            <div class="visualization-container" id="graphView">
+                <!-- Layout Selector -->
+                <div class="layout-controls">
+                    <select id="layoutMode" class="layout-select">
+                        <option value="force">🔄 Fuerza</option>
+                        <option value="hierarchy">📊 Jerárquico</option>
+                    </select>
+                </div>
+                <!-- Scanning Overlay -->
+                <div class="scanning-overlay" id="scanningOverlay">
+                    <div class="scanning-animation">
+                        <div class="scanning-ring"></div>
+                        <div class="scanning-ring"></div>
+                        <div class="scanning-ring"></div>
+                    </div>
+                    <p class="scanning-text">Escaneando red...</p>
+                </div>
+
+                <!-- Network Graph -->
+                <svg id="networkGraph"></svg>
+
+                <!-- Tooltip -->
+                <div class="tooltip" id="tooltip"></div>
+            </div>
+
+            <!-- Inventory View Container -->
+            <div class="inventory-view" id="inventoryView" style="display: none;">
+                <!-- Inventory Filters -->
+                <div class="inventory-filters">
+                    <div class="filter-stats">
+                        <span class="filter-stat"><strong id="invTotal">0</strong> Total</span>
+                        <span class="filter-stat online"><strong id="invOnline">0</strong> Online</span>
+                        <span class="filter-stat documented"><strong id="invDoc">0</strong> Documentados</span>
+                        <span class="filter-stat rogue"><strong id="invRogue">0</strong> Rogue</span>
+                    </div>
+                    <div class="filter-controls">
+                        <input type="text" id="inventorySearch" class="search-input"
+                            placeholder="🔍 Buscar hostname, IP...">
+                        <select id="inventoryFilter" class="filter-select">
+                            <option value="all">Todos</option>
+                            <option value="critical">🔴 Críticos</option>
+                            <option value="online">🟢 Online</option>
+                            <option value="offline">⚫ Offline</option>
+                            <option value="documented">📋 Documentados</option>
+                            <option value="rogue">⚠️ Rogue</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="inventory-grid" id="inventoryGrid">
+                    <!-- Cards will be injected here -->
+                </div>
+            </div>
+
+            <!-- Device Panel (slide-in) -->
+            <div class="device-panel" id="devicePanel">
+                <div class="panel-header">
+                    <h2 id="panelTitle">Detalles del dispositivo</h2>
+                    <button class="btn-close" id="btnClosePanel">&times;</button>
+                </div>
+                <div class="panel-content" id="panelContent">
+                    <!-- Content loaded dynamically -->
+                </div>
+            </div>
+
+            <!-- Hacker Terminal Panel -->
+            <div class="terminal-panel" id="terminalPanel">
+                <div class="terminal-header">
+                    <div class="terminal-dots">
+                        <span class="dot red"></span>
+                        <span class="dot yellow"></span>
+                        <span class="dot green"></span>
+                    </div>
+                    <span class="terminal-title">network-scanner@homelab:~</span>
+                    <button class="terminal-toggle" id="btnToggleTerminal">_</button>
+                </div>
+                <div class="terminal-body" id="terminalBody">
+                    <!-- Stats Row -->
+                    <div class="terminal-stats">
+                        <div class="stat-box">
+                            <div class="stat-value" id="termDeviceCount">0</div>
+                            <div class="stat-label">HOSTS</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="termPortsOpen">0</div>
+                            <div class="stat-label">PORTS</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="termAlerts">0</div>
+                            <div class="stat-label">ALERTS</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="termUptime">--</div>
+                            <div class="stat-label">UPTIME</div>
+                        </div>
+                    </div>
+
+                    <!-- Activity Graph -->
+                    <div class="terminal-section">
+                        <div class="section-header">[NETWORK ACTIVITY]</div>
+                        <canvas id="activityGraph" height="60"></canvas>
+                    </div>
+
+                    <!-- Log Output -->
+                    <div class="terminal-section">
+                        <div class="section-header">[SCAN LOG]</div>
+                        <div class="terminal-log" id="terminalLog">
+                            <div class="log-line"><span class="log-time">--:--:--</span> <span
+                                    class="log-info">[SYS]</span> Inicializando network-scanner...</div>
+                        </div>
+                    </div>
+
+                    <!-- Command Input -->
+                    <div class="terminal-input-line">
+                        <span class="prompt">root@scanner:~$</span>
+                        <input type="text" id="terminalInput" class="terminal-input" placeholder="help"
+                            autocomplete="off">
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Legend -->
+        <footer class="legend">
+            <div class="legend-item">
+                <span class="legend-dot router"></span> Router
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot server"></span> Servidor
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot vm"></span> VM/Container
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot pc"></span> PC
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot mobile"></span> Móvil
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot nas"></span> NAS
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot iot"></span> IoT
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot lighting"></span> Iluminación
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot unknown"></span> Desconocido
+            </div>
+        </footer>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="main.js?v=20241229_v2"></script>
+</body>
+
+</html>

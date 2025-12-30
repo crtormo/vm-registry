@@ -1,9 +1,25 @@
+---
+ip: 192.168.100.113
+hostname: adguard
+type: container
+description: DNS Server + Ad Blocking para toda la red
+tags:
+  - dns
+  - security
+  - infrastructure
+specs:
+  cpu: "1 core"
+  ram: "512MB"
+  storage: "2GB"
+critical: true
+ctid: 103
+---
 # 🛡️ AdGuard Home
 
 > **Tipo**: LXC Container  
 > **CTID**: 103  
 > **Estado**: 🟢 Running  
-> **Última actualización**: 2025-12-25
+> **Última actualización**: 2025-12-29
 
 ---
 

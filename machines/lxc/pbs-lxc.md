@@ -1,9 +1,24 @@
+---
+ip: 192.168.100.232
+hostname: proxmox-backup-server
+type: container
+description: Servidor de backups de Proxmox
+tags:
+  - backup
+  - infrastructure
+specs:
+  cpu: "2 cores"
+  ram: "2GB"
+  storage: "10GB"
+critical: true
+ctid: 101
+---
 # 🔒 Proxmox Backup Server (PBS)
 
 > **Tipo**: LXC Container  
 > **CTID**: 101  
 > **Estado**: 🟢 Running  
-> **Última actualización**: 2025-12-25
+> **Última actualización**: 2025-12-29
 
 ---
 
