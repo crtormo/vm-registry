@@ -20,6 +20,7 @@ import storage
 import database
 import wol
 import monitor
+from telegram_notifier import notifier
 
 
 # WebSocket connections manager
@@ -87,10 +88,20 @@ async def periodic_scan_task():
                             "type": "device_alert",
                             "data": {"alert_type": "new_device", "ip": ip, "hostname": device.hostname}
                         })
+                        
+                        # Telegram Notification
+                        await notifier.notify_new_device(
+                            ip=ip, 
+                            mac=device.mac, 
+                            hostname=device.hostname, 
+                            vendor=device.vendor
+                        )
                 
                 # Lost devices
                 lost_ips = previous_devices_ips - current_ips
                 for ip in lost_ips:
+                    # Get device info from history/cache if possible
+                    # For simplcity, we just notify ID
                     database.create_alert(
                         alert_type="device_lost",
                         ip=ip,
@@ -100,6 +111,9 @@ async def periodic_scan_task():
                         "type": "device_alert",
                         "data": {"alert_type": "device_lost", "ip": ip}
                     })
+                    
+                    # Telegram Notification (Optional for lost?)
+                    await notifier.notify_device_lost(ip=ip)
             
             previous_devices_ips = current_ips
             

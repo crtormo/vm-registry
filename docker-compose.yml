@@ -12,6 +12,8 @@ services:
       - NET_RAW
     environment:
       - TZ=America/Santiago
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
     volumes:
       # Montamos el registro completo para que el scanner lo lea localmente
       - ./:/app/vm-registry:ro
