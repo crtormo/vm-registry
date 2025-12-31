@@ -13,7 +13,8 @@ from fastapi.responses import JSONResponse
 
 from models import (
     Device, ScanResult, NetworkInfo, DeviceUpdate, 
-    DeviceCustomization, InventoryItem, InventorySummary
+    DeviceCustomization, InventoryItem, InventorySummary,
+    TerminalRequest, TerminalResponse
 )
 from scanner import get_scanner, NMAP_AVAILABLE
 import storage
@@ -21,6 +22,16 @@ import database
 import wol
 import monitor
 from telegram_notifier import notifier
+try:
+    from ha_client import ha_client
+except ImportError:
+    # Dummy class if file missing or error
+    class DummyHA:
+        enabled = False
+    ha_client = DummyHA()
+
+
+START_TIME = datetime.now()
 
 
 # WebSocket connections manager
@@ -48,6 +59,52 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+async def enrich_result_with_ha(result: ScanResult):
+    """Enriquece el resultado del escaneo con datos de Home Assistant"""
+    if not ha_client.enabled:
+        return
+        
+    try:
+        # Refrescar estados (optimización: tal vez no en cada scan rápido si es muy frecuente, pero cada 30s está bien)
+        await ha_client.get_states()
+        
+        count = 0
+        for dev in result.devices:
+            ha_info = ha_client.get_device_info(dev.ip)
+            if ha_info:
+                dev.ha_data = ha_info
+                # Si el hostname es desconocido o IP, usar el de HA
+                if not dev.hostname or dev.hostname == dev.ip:
+                    dev.hostname = ha_info['name']
+                count += 1
+        
+        # Inyección de Dispositivos Virtuales (Zigbee/Z-Wave via HA)
+        # Buscar servidor HA para usar como padre
+        ha_server = next((d for d in result.devices if d.hostname == 'home-assistant' or (d.ha_data and d.ha_data.get('entity_id') == 'sensor.home_assistant_uptime')), None) # Hard to detect by entity
+        # Mejor usar IP conocida o nombre
+        if not ha_server:
+             ha_server = next((d for d in result.devices if d.ip == '192.168.100.196'), None)
+             
+        if ha_server:
+             virtual_dicts = ha_client.get_virtual_devices(ha_server.ip)
+             if virtual_dicts:
+                 print(f"[HA] Inyectando {len(virtual_dicts)} dispositivos virtuales vinculados a {ha_server.ip}")
+                 for v in virtual_dicts:
+                     try:
+                        new_dev = Device(**v)
+                        result.devices.append(new_dev)
+                     except Exception as ex:
+                        print(f"[HA] Error creando dispositivo virtual {v.get('hostname')}: {ex}")
+                 
+                 result.total_devices = len(result.devices)
+
+        if count > 0:
+            print(f"[HA] {count} dispositivos enriquecidos con datos de Home Assistant")
+            
+    except Exception as e:
+        print(f"[HA] Error enriqueciendo datos: {e}")
+
+
 # Background task for periodic scanning
 # Keep track of previous devices for alerts
 previous_devices_ips = set()
@@ -63,6 +120,10 @@ async def periodic_scan_task():
         print("[Periodic] Ejecutando escaneo automático...")
         try:
             result = scanner.scan(use_nmap=False)
+            
+            # Enriquecer con HA
+            await enrich_result_with_ha(result)
+            
             result_dict = result.model_dump(mode='json')
             
             # Save to history
@@ -166,6 +227,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/api/ha/analyze")
+async def analyze_home_assistant():
+    """Analiza la instancia de Home Assistant configurada"""
+    try:
+        from ha_client import ha_client
+        if not ha_client.enabled:
+            return {"error": "Home Assistant integration disabled"}
+            
+        states = await ha_client.get_states()
+        if not states:
+            return {"error": "Failed to fetch states from HA"}
+            
+        report = ha_client.analyze_potential(states)
+        return {"report": report, "entity_count": len(states)}
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ============== REST Endpoints ==============
 
@@ -175,7 +253,8 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "nmap_available": NMAP_AVAILABLE
+        "nmap_available": NMAP_AVAILABLE,
+        "ha_enabled": ha_client.enabled
     }
 
 
@@ -198,6 +277,9 @@ async def scan_network(
     """
     scanner = get_scanner()
     result = scanner.scan(use_nmap=use_nmap, scan_type=scan_type)
+    
+    # Enriquecer con HA
+    await enrich_result_with_ha(result)
     
     # Broadcast to WebSocket clients
     if manager.active_connections:
@@ -735,6 +817,130 @@ async def websocket_endpoint(websocket: WebSocket):
                 
     finally:
         manager.disconnect(websocket)
+
+
+
+# ============== Terminal & Stats Endpoints ==============
+
+@app.post("/api/terminal/command", response_model=TerminalResponse)
+async def terminal_command(request: TerminalRequest):
+    """Ejecuta un comando seguro desde el terminal hacker"""
+    cmd = request.command.strip().lower()
+    parts = cmd.split()
+    
+    if not parts:
+        return TerminalResponse(command=cmd, output="Error: Comando vacío")
+
+    action = parts[0]
+    
+    # 1. Comando HELP
+    if action == "help":
+        help_text = (
+            "Comandos disponibles:\n"
+            "  help              - Muestra esta ayuda\n"
+            "  ping <ip>         - Prueba conectividad con un host\n"
+            "  scan <type>       - Inicia un escaneo (quick, standard, full)\n"
+            "  ha info           - Información de Home Assistant\n"
+            "  pve info          - Información de Proxmox\n"
+            "  clear             - Limpia la pantalla"
+        )
+        return TerminalResponse(command=cmd, output=help_text, status="info")
+
+    # 2. Comando PING
+    if action == "ping":
+        if len(parts) < 2:
+            return TerminalResponse(command=cmd, output="Error: Falta IP", status="error")
+        
+        target = parts[1]
+        try:
+            # Comando ping seguro (solo 3 paquetes)
+            process = await asyncio.create_subprocess_exec(
+                "ping", "-c", "3", "-W", "2", target,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            
+            output = stdout.decode().strip() or stderr.decode().strip()
+            return TerminalResponse(command=cmd, output=output)
+        except Exception as e:
+            return TerminalResponse(command=cmd, output=f"Error ejecutando ping: {e}", status="error")
+
+    # 3. Comando SCAN
+    if action == "scan":
+        scan_type = parts[1] if len(parts) > 1 else "quick"
+        # Notificar por WS que iniciamos
+        await manager.broadcast({"type": "scan_starting"})
+        
+        # Ejecutar escaneo (esto podría bloquear si no se hace en thread, pero scanner suele ser rápido o usar nmap async)
+        scanner = get_scanner()
+        try:
+            result = scanner.scan(use_nmap=(scan_type != "quick"), scan_type=scan_type)
+            await enrich_result_with_ha(result)
+            
+            # Guardar y notificar
+            database.save_scan(result.model_dump(mode='json'), scan_type=scan_type)
+            await manager.broadcast({
+                "type": "scan_complete",
+                "data": result.model_dump(mode='json')
+            })
+            
+            return TerminalResponse(command=cmd, output=f"Escaneo {scan_type} completado. {len(result.devices)} dispositivos encontrados.")
+        except Exception as e:
+            return TerminalResponse(command=cmd, output=f"Error en escaneo: {e}", status="error")
+
+    # 4. Comando HA
+    if action == "ha":
+        if not ha_client.enabled:
+            return TerminalResponse(command=cmd, output="Home Assistant no está configurado", status="error")
+        
+        if len(parts) > 1 and parts[1] == "info":
+            config = await ha_client.get_config()
+            if not config:
+                 return TerminalResponse(command=cmd, output="Error obteniendo info de HA", status="error")
+            
+            info = f"Conectado a: {ha_client.base_url}\nVersión: {config.get('version')}\nUbicación: {config.get('location_name')}"
+            return TerminalResponse(command=cmd, output=info)
+            
+        return TerminalResponse(command=cmd, output="Uso: ha info")
+
+    return TerminalResponse(command=cmd, output=f"Error: Comando '{action}' no reconocido", status="error")
+
+
+@app.get("/api/terminal/stats")
+async def get_terminal_stats():
+    """Obtiene estadísticas reales para el terminal"""
+    # 1. Conteo de hosts online (del último escaneo)
+    latest = database.get_latest_scan()
+    online_count = 0
+    total_ports = 0
+    
+    if latest:
+        devices = latest.get("devices", [])
+        online_count = sum(1 for d in devices if d.get("is_online", True))
+        for d in devices:
+            total_ports += len(d.get("ports", []))
+            
+    # 2. Alertas no leídas
+    unread_alerts = database.get_alerts(unread_only=True)
+    
+    # 3. Uptime
+    uptime_delta = datetime.now() - START_TIME
+    hours, remainder = divmod(int(uptime_delta.total_seconds()), 3600)
+    minutes, seconds = divmod(remainder, 60)
+    uptime_str = f"{hours:02}:{minutes:02}:{seconds:02}"
+    
+    # 4. Historial para el canvas (últimos 10 escaneos)
+    history = database.get_scan_history(limit=12)
+    activity_data = [h.get("total_devices", 0) for h in reversed(history)]
+    
+    return {
+        "hosts": online_count,
+        "ports": total_ports,
+        "alerts": len(unread_alerts),
+        "uptime": uptime_str,
+        "activity": activity_data
+    }
 
 
 # ============== Entry Point ==============

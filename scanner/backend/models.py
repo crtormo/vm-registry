@@ -46,6 +46,14 @@ class Device(BaseModel):
     # Posición para visualización
     x: Optional[float] = None
     y: Optional[float] = None
+    
+    # Integraciones
+    proxmox_data: Optional[Dict[str, Any]] = None
+    ha_data: Optional[Dict[str, Any]] = None
+    
+    # Virtual Devices (Zigbee, Z-Wave, etc)
+    parent: Optional[str] = None # IP del nodo padre (ej: Home Assistant Server)
+    is_virtual: bool = False
 
 
 class DeviceCustomization(BaseModel):
@@ -119,4 +127,17 @@ class NetworkInfo(BaseModel):
     network: str
     gateway: str
     broadcast: str
+
+
+class TerminalRequest(BaseModel):
+    """Request para el terminal hacker"""
+    command: str
+
+
+class TerminalResponse(BaseModel):
+    """Response del terminal hacker"""
+    command: str
+    output: str
+    status: str = "success"  # success, error, info
+    timestamp: datetime = datetime.now()
 

@@ -1,119 +1,99 @@
 ---
-ip: dhcp
+ip: 192.168.100.196
 hostname: home-assistant
 type: vm
-description: Domótica y automatización del hogar
+description: Domótica y automatización del hogar (HAOS)
 tags:
   - smarthome
   - automation
   - iot
+  - haos
 specs:
   cpu: "2 cores"
   ram: "4GB"
-  storage: "32GB SATA"
-critical: false
+  storage: "32GB (vm-111-disk-0)"
+critical: true
 vmid: 111
 ---
 # 🏠 Home Assistant VM
 
-> **Tipo**: VM (QEMU)  
+> **Tipo**: VM (HAOS / QEMU)  
 > **VMID**: 111  
 > **Estado**: 🟢 Running  
-> **Última actualización**: 2025-12-29
+> **IP**: 192.168.100.196  
+> **Última actualización**: 2025-12-30 (Verificado por Scanner)
 
 ---
 
 ## 📊 Información General
 
+Esta máquina virtual ejecuta **Home Assistant Operating System (HAOS)**, sirviendo como el cerebro central de la domótica del hogar.
+
 | Campo | Valor |
 |-------|-------|
-| **Nombre** | home-assistant |
+| **Hostname** | home-assistant |
+| **Sistema Operativo** | Home Assistant OS (Linux based) |
+| **Acceso Web** | [http://192.168.100.196:8123](http://192.168.100.196:8123) |
+| **Supervisor** | [http://192.168.100.196:4357](http://192.168.100.196:4357) |
 | **VMID** | 111 |
-| **Propósito** | Domótica y automatización del hogar |
-| **Autostart** | ✅ Sí |
 
 ---
 
-## 💻 Recursos Asignados
+## 💻 Recursos Asignados (Proxmox)
 
 | Recurso | Valor |
 |---------|-------|
-| **CPU** | 2 cores |
+| **CPU** | 2 cores (Host) |
 | **RAM** | 4 GB |
-| **Disco** | 32 GB (SATA) |
-| **Storage** | (Por confirmar) |
+| **Disco Principal** | 32 GB (SATA, local-zfs/lvm) |
+| **Network** | VirtIO (vmbr0) |
 
----
-
-## 🌐 Red
-
-| Campo | Valor |
-|-------|-------|
-| **IP** | DHCP (Por confirmar IP fija) |
-| **MAC** | BC:24:11:D8:EA:E9 |
-| **Bridge** | vmbr0 |
-| **Interfaz** | virtio |
+> ⚠️ Confirma si el disco es SSD o HDD en Proxmox para ajustar performance de base de datos.
 
 ---
 
 ## 🔌 Puertos Expuestos
 
-| Puerto | Servicio | Descripción |
-|--------|----------|-------------|
-| 8123 | Home Assistant | Interfaz Web |
-| 22 | SSH | Acceso remoto |
+Detectados por escaneo activo:
+
+| Puerto | Servicio | Estado | Descripción |
+|--------|----------|--------|-------------|
+| **8123** | HTTP | ✅ Open | Interfaz Principal (Lovelace) |
+| **4357** | HTTP | ✅ Open | HA Supervisor Observer |
+| 22 | SSH | 🚫 Closed | Acceso SSH del sistema base (deshabilitado por defecto en HAOS) |
+| 1883 | MQTT | 🚫 Closed | Broker MQTT (Probablemente usando Add-on o externo) |
 
 ---
 
-## 🏠 Integraciones Típicas
+## 🏠 Integraciones Detectadas
 
 ### Protocolos
-- 🔵 Zigbee (via dongle USB o Zigbee2MQTT)
-- 🔴 Z-Wave (opcional)
-- 📶 WiFi (dispositivos IoT)
-- 🌐 MQTT (broker de mensajes)
+- **mDNS/Discovery**: Detectado tráfico multicast.
+- **Zigbee**: (Pendiente confirmar si usa USB Passthrough de ConBee/SkyConnect).
+- **Bluetooth**: (Pendiente verificar integración).
 
-### Dispositivos (Por documentar)
-- Luces inteligentes
-- Sensores
-- Termostatos
-- Cámaras
-- Cerraduras
+### Add-ons Probables
+Al estar cerrados 1883 y otros puertos, es probable que los add-ons (Node-RED, Mosquitto, Z2M) estén o no instalados, o no expuestos en puertos externos (Ingress).
 
 ---
 
-## 🔗 Relaciones
+## 🔗 Dependencias y Relaciones
 
-```
-┌─────────────────┐
-│ 🏠 Home         │
-│ Assistant       │
-│ VM 111          │
-└────────┬────────┘
-         │
-         ├──────► 🔵 Zigbee Devices
-         │
-         ├──────► 📱 App Móvil (Companion)
-         │
-         ├──────► 🔧 n8n (Automaciones externas)
-         │        (Docker VM 115)
-         │
-         └──────► 🌐 NPMplus (Acceso externo)
-                  (LXC 106)
+```mermaid
+graph LR
+    HA[🏠 Home Assistant] -->|Controla| IOT[💡 Dispositivos IoT]
+    HA -->|Respalda en| NAS[💾 Synology/Google Drive]
+    App[📱 Companion App] -->|Conecta a| HA
+    
+    subgraph Proxmox
+      HA
+    end
 ```
 
 ---
 
-## 📝 Notas
+## 📝 Notas de Mantenimiento
 
-- Esta VM corre la instalación principal de Home Assistant
-- Considerar backup regular de configuración
-- Guest agent: (Por verificar si está instalado)
-
----
-
-## 📜 Historial
-
-| Fecha | Cambio |
-|-------|--------|
-| 2025-12-25 | Registro creado |
+1.  **Backups**: Configurar backups automáticos (Google Drive Backup Add-on recomendado).
+2.  **Actualizaciones**: HAOS se actualiza desde la interfaz UI.
+3.  **Acceso Externo**: Actualmente no detectado proxy reverso directo en puertos estándar. (¿NPMplus maneja esto?)

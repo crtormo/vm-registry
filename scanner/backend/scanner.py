@@ -251,9 +251,50 @@ class NetworkScanner:
         # Cargar datos del registro
         self.registry.parse_all()
         
+        # Cargar datos de Proxmox (si está habilitado)
+        proxmox_inventory = []
+        try:
+            from proxmox_client import proxmox_client
+            if proxmox_client.enabled:
+                print("[Scanner] Obteniendo inventario de Proxmox...")
+                proxmox_inventory = proxmox_client.get_all_vms()
+                print(f"[Scanner] Proxmox: {len(proxmox_inventory)} VMs/CTs encontrados")
+        except Exception as e:
+            print(f"[Scanner] Error cargando Proxmox: {e}")
+        
         for ip, mac, vendor in raw_devices:
             device_type, hostname = self._identify_device_type(ip, mac, vendor)
             is_gateway = (ip == self.network_info.gateway)
+            
+            # Enriquecimiento Proxmox
+            # Buscamos por MAC (lo más fiable) o por IP
+            proxmox_info = None
+            for vm in proxmox_inventory:
+                # Match por MAC
+                if mac in vm['macs']:
+                    proxmox_info = vm
+                    break
+                # Match por IP (si la tenemos)
+                if ip in vm['ips']:
+                    proxmox_info = vm
+                    break
+            
+            proxmox_data = None
+            if proxmox_info:
+                hostname = proxmox_info['name']
+                vendor = "Proxmox Virtualization"
+                if proxmox_info['type'] == 'lxc':
+                    device_type = DeviceType.CONTAINER
+                elif proxmox_info['type'] == 'qemu':
+                    device_type = DeviceType.VM
+                
+                proxmox_data = {
+                    "vmid": proxmox_info['vmid'],
+                    "status": proxmox_info.get('status'),
+                    "node": proxmox_info.get('node'),
+                    # Estos campos adicionales podrían venir de proxmox_client si los pedimos
+                    "uptime": proxmox_info.get('uptime') 
+                }
             
             # Enriquecer con VM-Registry
             registry_info = self.registry.get_host_info(ip)
@@ -261,12 +302,15 @@ class NetworkScanner:
             is_rogue = False
             
             if registry_info:
+                # Si está en registro, el nombre del registro manda sobre Proxmox
+                # (o podríamos concatenarlos, pero el registro suele ser "la verdad documentada")
                 hostname = registry_info.name
                 registry_name = registry_info.name
             else:
-                # Si no está en el registro, es "unknown" o "rogue"
-                # Excluimos el gateway y nosotros mismos para no generar falsos positivos excesivos al inicio
-                if not is_gateway and ip != self.network_info.ip:
+                # Si viene de Proxmox, no es rogue, es conocido pero no documentado manualmente
+                if proxmox_info:
+                    is_rogue = False 
+                elif not is_gateway and ip != self.network_info.ip:
                     is_rogue = True
             
             device = Device(
@@ -274,6 +318,7 @@ class NetworkScanner:
                 mac=mac,
                 hostname=hostname,
                 vendor=vendor if vendor != "Unknown" else None,
+                proxmox_data=proxmox_data,
                 device_type=device_type,
                 registry_name=registry_name,
                 is_rogue=is_rogue,
@@ -281,6 +326,13 @@ class NetworkScanner:
                 is_online=True,
                 last_seen=datetime.now()
             )
+            
+            # Add extra metadata from Proxmox if available
+            if proxmox_info:
+                # Podríamos añadir notas o tags, pero el modelo Device es estricto en este punto.
+                # Lo dejamos así por ahora.
+                pass
+
             devices.append(device)
         
         # Si se solicita nmap, enriquecer datos

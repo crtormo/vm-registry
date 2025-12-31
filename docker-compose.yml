@@ -14,6 +14,13 @@ services:
       - TZ=America/Santiago
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - PROXMOX_HOST=${PROXMOX_HOST}
+      - PROXMOX_USER=${PROXMOX_USER}
+      - PROXMOX_TOKEN_ID=${PROXMOX_TOKEN_ID}
+      - PROXMOX_TOKEN_SECRET=${PROXMOX_TOKEN_SECRET}
+      - PROXMOX_VERIFY_SSL=${PROXMOX_VERIFY_SSL:-false}
+      - HA_URL=${HA_URL}
+      - HA_TOKEN=${HA_TOKEN}
     volumes:
       # Montamos el registro completo para que el scanner lo lea localmente
       - ./:/app/vm-registry:ro
@@ -37,3 +44,5 @@ services:
         condition: service_healthy
     environment:
       - TZ=America/Santiago
+    volumes:
+      - ./scanner/frontend:/usr/share/nginx/html:ro
